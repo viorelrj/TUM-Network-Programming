@@ -21,25 +21,29 @@ class Worker(threading.Thread):
             f = task['f']
             args = task['args']
             kwargs = task['kwargs']
-            res = f(*args, **kwargs)
-            task['ret']()
+            f(*args, **kwargs)
+            task['callback']()
 
 
 
 class ThreadPool():
     threads = []
-    queue = PoolQueue()
+    __queue = PoolQueue()
+
 
     def __init__(self, threads_number):
         for _ in range(0, threads_number):
-            self.threads.append(Worker(self.queue))
+            self.threads.append(Worker(self.__queue))
 
     def add_task(self, f, *args, **kwargs):
-        self.queue.put({
+        callback = kwargs.get('callback', lambda: None)
+
+        self.__queue.put({
             'f': f,
             'args': args[0],
             'kwargs': {},
-            'ret': kwargs['ret']
-        }, True);
+            'callback': callback
+        }, True)
 
-
+    def close(self):
+        self.__queue.finished = True
