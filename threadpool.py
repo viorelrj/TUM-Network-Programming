@@ -1,5 +1,6 @@
 import threading
 from queue import Queue
+from synchronizer import Syncrhonizer
 
 class PoolQueue(Queue):
     finished = False
@@ -13,6 +14,7 @@ class Worker(threading.Thread):
         super(Worker, self).__init__()
         self.queue = queue
         self.start()
+        # self.done = sync
 
     def run(self):
         while not self.queue.finished:
@@ -32,8 +34,9 @@ class ThreadPool():
 
 
     def __init__(self, threads_number):
-        for _ in range(0, threads_number):
-            self.threads.append(Worker(self.__queue))
+        for _ in range(threads_number):
+            worker = Worker(self.__queue)
+            self.threads.append(worker)
 
     def add_task(self, f, *args, **kwargs):
         callback = kwargs.get('callback', lambda: None)
