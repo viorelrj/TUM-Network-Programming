@@ -9,43 +9,49 @@ import xmltodict
 import yaml
 import csv
 from io import StringIO
+from queue import Queue
 
 pp = pprint.PrettyPrinter(indent=4)
+print_json = lambda content: print(json.dumps(content, indent=4))
 
 base_url = 'http://localhost:5000'
 
-resultsDict = {
-    'data': '',
-    'link': {}
-}
+results_queue = Queue()
 
-results_dict = {}
+def parse_result(res):
+    content = res['data']
+    content_type = res['mime_type'] if ('mime_type' in res) else 'application/x-yaml'
 
-def parse_result(content, type):
-    pass
-    # if type == 'text/csv':
-    #     # return csv.reader(StringIO(content), delimiter='')
-    #     pass
-    if type == 'application/xml':
+    if content_type == 'text/csv':
+        f = StringIO(content)
+        reader = csv.reader(f, delimiter=',')
+        temp = list(reader)
+        keys = temp[0]
+        content = []
+        for row in enumerate(temp[1:]):
+            row = row[1]
+            bit = {}
+            for index, item in enumerate(row):
+                bit[keys[index]] = item
+            content.append(bit)
+    if content_type == 'application/xml':
         content = xmltodict.parse(content)
-        # print(json.dumps(content, indent=4))
-        # return content
-    # elif type == 'application/x-yaml':
-    #     content = yaml.parse(content)
-    #     print(json.dumps(content, indent=4))
-    #     return content
-    # elif type == 'application/json':
-    #     pass
-    # else:
-    #     raise Exception("Content type unknown")
+        content = content['dataset']['record']
+    elif content_type == 'application/x-yaml':
+        content = yaml.safe_load(content)
+    
+    return content
+
+
 
 def save_result(path, res):
     if 'data' in res:
         path = path.replace('/home', '')
-        results_dict[path] = res['data']
+        results_queue.put({
+            'path': path,
+            'content': parse_result(res)
+        })
 
-        if 'mime_type' in res:
-            parse_result(res['data'], res['mime_type'])
 
 def make_request(url, **kwargs):
     headers = kwargs.get('headers', {})
@@ -63,10 +69,39 @@ def route_request(link, token, sync, pool):
     sync.emit()
 
 
+def make_table(src):
+    def empty_row(keys):
+        result = {}
+        for item in keys:
+            result[item] = None
+        return result
+
+    key_list = set()
+    for item in src:
+        for key in item:
+            key_list.add(key)
+    
+    table = []
+    for item in src:
+        entry = empty_row(key_list)
+        for key in item:
+            entry[key] = item[key]
+        table.append(entry)
+    print_json(table)
+
+
+
 def main_request(pool):
+
     def callback():
+        res = []
         print('hello')
         pool.close()
+        while (results_queue.qsize() != 0):
+            res.append(results_queue.get()['content'])
+        res = [item for sublist in res for item in sublist]
+        make_table(res)
+
 
     r = make_request(base_url + '/register')
     sync = Syncrhonizer(lambda: callback())

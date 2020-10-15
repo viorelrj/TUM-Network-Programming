@@ -10,15 +10,15 @@ class PoolQueue(Queue):
 
 
 class Worker(threading.Thread):
-    def __init__(self, queue):
+    def __init__(self, queue, index):
         super(Worker, self).__init__()
         self.queue = queue
         self.start()
-        # self.done = sync
+        self.index = index
 
     def run(self):
         while not self.queue.finished:
-            if (self.queue.empty()): continue
+            if (self.queue.qsize() == 0): continue
             task = self.queue.get(True)
             f = task['f']
             args = task['args']
@@ -34,8 +34,8 @@ class ThreadPool():
 
 
     def __init__(self, threads_number):
-        for _ in range(threads_number):
-            worker = Worker(self.__queue)
+        for index in range(threads_number):
+            worker = Worker(self.__queue, index)
             self.threads.append(worker)
 
     def add_task(self, f, *args, **kwargs):
