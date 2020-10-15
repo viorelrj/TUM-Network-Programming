@@ -38,12 +38,11 @@ class ThreadPool():
             worker = Worker(self.__queue, index)
             self.threads.append(worker)
 
-    def add_task(self, f, *args, **kwargs):
+    def add_task(self, f, args, **kwargs):
         callback = kwargs.get('callback', lambda: None)
-
         self.__queue.put({
             'f': f,
-            'args': args[0],
+            'args': args,
             'kwargs': {},
             'callback': callback
         }, True)

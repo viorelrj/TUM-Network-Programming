@@ -3,6 +3,7 @@ import json
 from threadpool import ThreadPool
 from queue import Queue
 from synchronizer import Syncrhonizer
+from network import Server
 
 import pprint
 import xmltodict
@@ -65,7 +66,7 @@ def route_request(link, token, sync, pool):
     if 'link' in res:
         for l in res['link'].values():
             sync.add_dependency()
-            pool.add_task(route_request, (l, token, sync, pool))
+            pool.add_task(route_request, [l, token, sync, pool])
     sync.emit()
 
 
@@ -87,28 +88,48 @@ def make_table(src):
         for key in item:
             entry[key] = item[key]
         table.append(entry)
-    print_json(table)
 
+
+class LocalServer():
+    def __init__(self, table):
+        self.__table = table
+        self.__server = Server(self.__listen)
+        self.__server.run()
+        print('created server')
+
+    def __listen(self, request):
+        query = request['data']
+        self.__dispatch(query)
+        return(request)
+
+    def __dispatch(self, query):
+        def select_column(arr):
+            res = []
+            for item in self.__table:
+                print(item)
+                if (arr[0] in item):
+                    res.append(item[arr[0]])
+            print(res)
 
 
 def main_request(pool):
 
     def callback():
         res = []
-        print('hello')
         pool.close()
         while (results_queue.qsize() != 0):
             res.append(results_queue.get()['content'])
         res = [item for sublist in res for item in sublist]
-        make_table(res)
+        LocalServer(res)
+
 
 
     r = make_request(base_url + '/register')
     sync = Syncrhonizer(lambda: callback())
     sync.add_dependency()
-    pool.add_task(route_request, ('/home', r['access_token'], sync, pool))
+    pool.add_task(route_request, ['/home', r['access_token'], sync, pool])
 
 pool = ThreadPool(6)
 main_request(pool)
 
-
+# server = LocalServer([])
