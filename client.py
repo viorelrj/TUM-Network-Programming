@@ -18,7 +18,7 @@ def decorate_message(msg):
 class Client():
     def __init__(self):
         self.__core = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.__core.connect((socket.gethostname(), conf['port']))
+        self.__core.connect((conf['ip'], conf['port']))
         self.__core.setblocking(False)
 
     def __send(self, msg):

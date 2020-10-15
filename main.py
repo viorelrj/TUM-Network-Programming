@@ -5,6 +5,8 @@ from queue import Queue
 from synchronizer import Syncrhonizer
 from network import Server
 
+from concurrent import futures
+
 import pprint
 import xmltodict
 import yaml
@@ -59,15 +61,24 @@ def make_request(url, **kwargs):
     return json.loads(requests.get(url, headers=headers).text)
 
 # Returns isLastNode
-def route_request(link, token, sync, pool):
+def route_request(link, token, pool):
+    arr = []
     res = make_request(base_url + link, headers={'X-Access-Token': token})
-    save_result(link, res)
+
+    def req(link):
+        return route_request(link, token, pool)
+
+    if 'data' in res:
+        arr.append(res)
 
     if 'link' in res:
-        for l in res['link'].values():
-            sync.add_dependency()
-            pool.add_task(route_request, [l, token, sync, pool])
-    sync.emit()
+        links = list(res['link'].values())
+        children = pool.map(req, links)
+        
+        for child in children:
+            arr += child
+    
+    return arr
 
 
 def make_table(src):
@@ -95,41 +106,40 @@ class LocalServer():
         self.__table = table
         self.__server = Server(self.__listen)
         self.__server.run()
-        print('created server')
 
     def __listen(self, request):
         query = request['data']
-        self.__dispatch(query)
+        try:
+            res = self.__dispatch(query)
+            request['data'] = json.dumps(res)
+        except:
+            pass
         return(request)
 
     def __dispatch(self, query):
         def select_column(arr):
             res = []
             for item in self.__table:
-                print(item)
                 if (arr[0] in item):
                     res.append(item[arr[0]])
-            print(res)
+            return res
+        
+        query = query.split(' ')
+        if query[0] == 'selectColumn':
+            return select_column(query[1:])
+
 
 
 def main_request(pool):
-
-    def callback():
-        res = []
-        pool.close()
-        while (results_queue.qsize() != 0):
-            res.append(results_queue.get()['content'])
-        res = [item for sublist in res for item in sublist]
-        LocalServer(res)
-
-
-
     r = make_request(base_url + '/register')
-    sync = Syncrhonizer(lambda: callback())
-    sync.add_dependency()
-    pool.add_task(route_request, ['/home', r['access_token'], sync, pool])
+    res = []
+    future = pool.submit(route_request, '/home', r['access_token'], pool)
+    return future
 
-pool = ThreadPool(6)
-main_request(pool)
+with futures.ThreadPoolExecutor(max_workers=10) as executor:
+    def flatten(l): return [item for sublist in l for item in sublist]
+    res = main_request(executor)
+    res = list(map(lambda x: parse_result(x), res.result()))
+    res = flatten(res)
 
-# server = LocalServer([])
+    server = LocalServer(res)

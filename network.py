@@ -25,7 +25,7 @@ class Server():
     def __init__(self, react):
         self.__core = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__core.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.__core.bind((socket.gethostname(), conf['port']))
+        self.__core.bind((conf['ip'], conf['port']))
         self.__core.listen()
         self.__sockets = [self.__core]
         self.react = react
