@@ -80,27 +80,6 @@ def route_request(link, token, pool):
     
     return arr
 
-
-def make_table(src):
-    def empty_row(keys):
-        result = {}
-        for item in keys:
-            result[item] = None
-        return result
-
-    key_list = set()
-    for item in src:
-        for key in item:
-            key_list.add(key)
-    
-    table = []
-    for item in src:
-        entry = empty_row(key_list)
-        for key in item:
-            entry[key] = item[key]
-        table.append(entry)
-
-
 class LocalServer():
     def __init__(self, table):
         self.__table = table
@@ -129,17 +108,20 @@ class LocalServer():
             return select_column(query[1:])
 
 
-
 def main_request(pool):
     r = make_request(base_url + '/register')
-    res = []
     future = pool.submit(route_request, '/home', r['access_token'], pool)
     return future
+
+
 
 with futures.ThreadPoolExecutor(max_workers=10) as executor:
     def flatten(l): return [item for sublist in l for item in sublist]
     res = main_request(executor)
     res = list(map(lambda x: parse_result(x), res.result()))
     res = flatten(res)
+
+    
+
 
     server = LocalServer(res)

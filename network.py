@@ -55,7 +55,6 @@ class Server():
                     client_socket, client_address = self.__core.accept()
                     self.__receive_message(client_socket, q)
 
-    
     def __execute(self, f, src, dest):
         while True:
             if self.__requests.qsize():
